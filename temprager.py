@@ -26,7 +26,7 @@ class TemPageR():
         """
         # Configuration
         self.graphTitle = "Server Room Temperatures"
-        self.grapWarning = 27
+        self.grapWarning = 28
         self.graphCritical = 30
 
         # Sensor IP
