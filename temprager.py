@@ -15,6 +15,7 @@ from json import loads
 from telnetlib import Telnet
 from sys import argv, exit
 from re import sub
+from logging import basicConfig, debug, error, INFO, DEBUG
 
 class TemPageR():
 
@@ -28,10 +29,14 @@ class TemPageR():
         self.graphCritical = 30
 
         # Sensor IP
-        self.temperatureSensor = ""
+        self.temperatureSensor = "temperature.silicom.dk"
+
+        # Logging
+        # Should be INFO or DEBUG
+        self.logLevel = INFO
 
         # Initialization
-        self.temperatures = {}
+        self.temperatures = []
         self.fetch()
 
 
@@ -47,7 +52,8 @@ class TemPageR():
             tn = Telnet(self.temperatureSensor, 80)
             tn.write("GET /getData.html".encode('ascii') + b"\n\n")
         except Exception as e:
-            print("Unable to connect ({})".format(e))
+            debug("Something happened, exception: {}".format(e), exc_info=False)
+            error("Something happened, exception: {}".format(e), exc_info=True)
             exit(2)
 
         # Here the code read the telnet response and decode it into a text string from ascii
@@ -68,48 +74,57 @@ class TemPageR():
             temp = loads(text)
         except Exception as e:
             temp = None
-            print("Unable to parse JSON string ({})".format(e))
+            error("Unable to parse JSON string: {}".format(e), exc_info=False)
+            error("Unable to parse JSON string: {}".format(e), exc_info=True)
             exit(2)
 
         # Extract all data and stuff it into a dict
-        if type(temp) is dict:
+        if isinstance(temp, dict):
             if 'sensor' in temp:
-                i = 0
                 for sensor in temp["sensor"]:
-                    self.temperatures[i] = {
+                    self.temperatures.append({
                         'label': sensor['label'],
                         'tempc': sensor['tempc']
-                    }
-                    i += 1
+                    })
 
 
     def printConfig(self):
         """
         Print munin config
         """
-        print("graph_title {}".format(self.graphTitle))
-        print("graph_vlabel degrees Celsius")
-        print("graph_args --base 1000 -l 0")
-        print("graph_category sensors")
-        for sensorId,sensor in self.temperatures.items():
-            print("temp{}.label {}".format(sensorId, sensor['label']))
-            print("temp{}.warning {}".format(sensorId, self.grapWarning))
-            print("temp{}.critical {}".format(sensorId, self.graphCritical))
+        sensorId = 0
+        output = "graph_title {}\n".format(self.graphTitle)
+        output += "graph_vlabel degrees Celsius\n"
+        output += "graph_args --base 1000 -l 0\n"
+        output += "graph_category sensors\n"
+        for sensor in self.temperatures:
+            output += "temp{}.label {}\n".format(sensorId, sensor['label'])
+            output += "temp{}.warning {}\n".format(sensorId, self.grapWarning)
+            output += "temp{}.critical {}\n".format(sensorId, self.graphCritical)
+            sensorId += 1
+        print(output, end = '')
 
     def printTemp(self):
         """
         Print munin readings
         """
-        for sensorId,sensor in self.temperatures.items():
-            print("temp{}.value {}".format(sensorId, sensor['tempc']))
+        sensorId = 0
+        output = ""
+        for sensor in self.temperatures:
+            output += "temp{}.value {}\n".format(sensorId, sensor['tempc'])
+            sensorId += 1
+        print(output, end = '')
 
 
 if __name__ == '__main__':
-    mode = argv[1] if len(argv) == 2 else ""
-
+    # Initialize TemPageR
     temPager = TemPageR()
+    
+    # Configure logging
+    basicConfig(level=temPager.logLevel)
 
-    if mode == "config":
+    # Output config options or temp data
+    if (argv[1] if len(argv) == 2 else "") == "config":
         temPager.printConfig()
     else:
         temPager.printTemp()
