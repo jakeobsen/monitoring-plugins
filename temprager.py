@@ -17,6 +17,7 @@ from sys import argv, exit
 from re import sub
 from logging import basicConfig, error, INFO
 
+
 class TemPageR():
 
     def __init__(self):
@@ -38,7 +39,6 @@ class TemPageR():
         # Initialization
         self.temperatures = []
         self.fetch()
-
 
     def fetch(self):
         """
@@ -67,7 +67,7 @@ class TemPageR():
         text = sub(r",([a-z]*)", r',"\1"', text)
         # The second regex line introduce a small error in
         # the JSON which we clean up here - replace ',""{' with ',{'
-        text = sub(',""{', ',{', text) 
+        text = sub(',""{', ',{', text)
 
         # After the cleanup, the string should be parseable as JSON
         try:
@@ -87,7 +87,6 @@ class TemPageR():
                         'tempc': sensor['tempc']
                     })
 
-
     def printConfig(self):
         """
         Print munin config
@@ -102,7 +101,7 @@ class TemPageR():
             output += "temp{}.warning {}\n".format(sensorId, self.grapWarning)
             output += "temp{}.critical {}\n".format(sensorId, self.graphCritical)
             sensorId += 1
-        print(output, end = '')
+        print(output, end='')
 
     def printTemp(self):
         """
@@ -113,13 +112,13 @@ class TemPageR():
         for sensor in self.temperatures:
             output += "temp{}.value {}\n".format(sensorId, sensor['tempc'])
             sensorId += 1
-        print(output, end = '')
+        print(output, end='')
 
 
 if __name__ == '__main__':
     # Initialize TemPageR
     temPager = TemPageR()
-    
+
     # Configure logging
     basicConfig(level=INFO)
 
