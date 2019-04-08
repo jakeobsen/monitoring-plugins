@@ -42,7 +42,7 @@ class TemPageR():
         # The temperature sensor does not return a proper HTTP response when calling the /getData.html page
         # The sensor does not return any headers, and only the body which is a single line of bad JSON data
         # This means the python requests plugin does not know how to handle the data. Instead I chose to use
-        # the telnetlib module, and just send a raw http response and grab response.
+        # the telnetlib module, and just send a raw http response and grab the response.
         try:
             tn = Telnet(self.temperatureSensor, 80)
             tn.write("GET /getData.html".encode('ascii') + b"\n\n")
