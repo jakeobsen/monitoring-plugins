@@ -78,9 +78,7 @@ class TemPageR():
                 for sensor in temp["sensor"]:
                     self.temperatures[i] = {
                         'label': sensor['label'],
-                        'tempc': sensor['tempc'],
-                        'highc': sensor['highc'],
-                        'lowc': sensor['lowc'],
+                        'tempc': sensor['tempc']
                     }
                     i += 1
 
