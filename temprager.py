@@ -15,7 +15,7 @@ from json import loads
 from telnetlib import Telnet
 from sys import argv, exit
 from re import sub
-from logging import basicConfig, debug, error, INFO, DEBUG, CRITICAL
+from logging import basicConfig, error, INFO
 
 class TemPageR():
 
@@ -32,9 +32,8 @@ class TemPageR():
         self.temperatureSensor = ""
 
         # Logging
-        # Should be INFO, DEBUG or CRITICAL
-        # CRITICAL is essentially off right now (nothing uses it)
-        self.logLevel = CRITICAL
+        self.enableLogging = False
+        self.outputTrace = True
 
         # Initialization
         self.temperatures = []
@@ -53,8 +52,8 @@ class TemPageR():
             tn = Telnet(self.temperatureSensor, 80)
             tn.write("GET /getData.html".encode('ascii') + b"\n\n")
         except Exception as e:
-            debug("Something happened, exception: {}".format(e), exc_info=False)
-            error("Something happened, exception: {}".format(e), exc_info=True)
+            if self.enableLogging:
+                error("Something happened, exception: {}".format(e), exc_info=self.outputTrace)
             exit(2)
 
         # Here the code read the telnet response and decode it into a text string from ascii
@@ -75,8 +74,8 @@ class TemPageR():
             temp = loads(text)
         except Exception as e:
             temp = None
-            error("Unable to parse JSON string: {}".format(e), exc_info=False)
-            error("Unable to parse JSON string: {}".format(e), exc_info=True)
+            if self.enableLogging:
+                error("Unable to parse JSON string: {}".format(e), exc_info=self.outputTrace)
             exit(2)
 
         # Extract all data and stuff it into a dict
@@ -122,7 +121,7 @@ if __name__ == '__main__':
     temPager = TemPageR()
     
     # Configure logging
-    basicConfig(level=temPager.logLevel)
+    basicConfig(level=INFO)
 
     # Output config options or temp data
     if (argv[1] if len(argv) == 2 else "") == "config":
