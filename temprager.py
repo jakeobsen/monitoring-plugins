@@ -15,7 +15,7 @@ from json import loads
 from telnetlib import Telnet
 from sys import argv, exit
 from re import sub
-from logging import basicConfig, debug, error, INFO, DEBUG
+from logging import basicConfig, debug, error, INFO, DEBUG, CRITICAL
 
 class TemPageR():
 
@@ -29,11 +29,12 @@ class TemPageR():
         self.graphCritical = 30
 
         # Sensor IP
-        self.temperatureSensor = "temperature.silicom.dk"
+        self.temperatureSensor = ""
 
         # Logging
-        # Should be INFO or DEBUG
-        self.logLevel = INFO
+        # Should be INFO, DEBUG or CRITICAL
+        # CRITICAL is essentially off right now (nothing uses it)
+        self.logLevel = CRITICAL
 
         # Initialization
         self.temperatures = []
