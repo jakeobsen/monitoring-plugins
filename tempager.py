@@ -10,6 +10,32 @@
 # works with later version of the firmware the other
 # products AVTECH makes. Use it at your own risk.
 #
+# When this file is run, it will contact the TemPageR
+# sensor and grab the data, if any exceptions happen
+# they will be logged to the specified logfile.
+# By default this script will log into the munin
+# log directory.
+# 
+# If you use the default log path, I would highly
+# recommend that you configure logrotation.
+# The easiest way is to add the following logrotate
+# snippet to the munin logrotate file.
+#
+# The snippet below will enable logrotation of the
+# tempager.log file using the default munin logrotate
+# ruleset.
+#
+# Add this to  /etc/logrotate.d/munin:
+#
+# /var/log/munin/tempager.log {
+#   daily
+#   missingok
+#   rotate 7
+#   compress
+#   notifempty
+#   create 640 munin adm
+# }
+#
 
 import logging
 from json import loads
@@ -24,12 +50,17 @@ class TemPageR():
         """
         Configure object and fetch data
         """
-        # Configuration
+
+        # ##         ## #
+        # Configuration #
+        # ##         ## #
+
+        # Munin graph
         self.graphTitle = "Server Room Temperatures"
         self.grapWarning = 28
         self.graphCritical = 30
 
-        # Sensor IP
+        # Sensor IP or hostname
         self.temperatureSensor = ""
 
         # Logging
@@ -37,7 +68,11 @@ class TemPageR():
         self.logLevel = logging.INFO
         self.outputTrace = True
 
-        # Initialization
+        ##               ## #
+        # Configuration End #
+        ##               ## #
+
+        # Variable Initializations
         self.temperatures = []
 
     def fetch(self):
