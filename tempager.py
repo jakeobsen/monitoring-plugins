@@ -121,24 +121,28 @@ class TemPageR():
                     })
 
     def printConfig(self):
-        """
-        Print munin config
-        """
         # Fetch data from TemPageR
         self.fetch()
 
-        # Format output
-        output = "graph_title {}\n".format(self.graphTitle)
-        output += "graph_vlabel degrees {}\n".format('Fahrenheit' if self.temperatureScale == 'f' else "Celsius")
-        output += "graph_args --base 1000 -l 0\n"
-        output += "graph_category sensors\n"
-        for sensorId, sensor in enumerate(self.temperatures):
-            output += "temp{}.label {}\n".format(sensorId, sensor['label'])
-            output += "temp{}.warning {}\n".format(sensorId, self.grapWarning)
-            output += "temp{}.critical {}\n".format(sensorId, self.graphCritical)
+        # Format graph metadata output
+        output = """graph_title {}
+graph_vlabel degrees {}
+graph_args --base 1000 -l 0
+graph_category sensors""".format(self.graphTitle, format('Fahrenheit' if self.temperatureScale == 'f' else "Celsius"))
 
-        # Print output
-        print(output, end='')
+        # Graph sensor template
+        msg = """temp{sensorId}.label {label}
+temp{sensorId}.warning {warn}
+temp{sensorId}.critical {crit}"""
+
+        # Build graph meta data
+        msg = '\n'.join(msg.format(sensorId=sId,
+                                   label=sensor['label'], 
+                                   warn=self.grapWarning,
+                                   crit=self.graphCritical) for sId, sensor in enumerate(self.temperatures))
+        
+        # Assemble and print output
+        print('\n'.join([output, msg]))
 
     def printTemp(self):
         """
