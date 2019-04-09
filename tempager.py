@@ -107,7 +107,6 @@ class TemPageR():
         try:
             temp = loads(text)
         except Exception as e:
-            temp = None
             logging.error("Unable to parse JSON string: {}".format(e), exc_info=self.outputTrace)
             exit(2)
 
