@@ -59,6 +59,7 @@ class TemPageR():
         self.graphTitle = "Server Room Temperatures"
         self.grapWarning = 28
         self.graphCritical = 30
+        self.temperatureScale = "c"
 
         # Sensor IP or hostname
         self.temperatureSensor = ""
@@ -116,32 +117,42 @@ class TemPageR():
                 for sensor in temp["sensor"]:
                     self.temperatures.append({
                         'label': sensor['label'],
-                        'tempc': sensor['tempc']
+                        'temp': sensor['tempf' if self.temperatureScale == 'f' else "tempc"]
                     })
 
     def printConfig(self):
         """
         Print munin config
         """
+        # Fetch data from TemPageR
         self.fetch()
+
+        # Format output
         output = "graph_title {}\n".format(self.graphTitle)
-        output += "graph_vlabel degrees Celsius\n"
+        output += "graph_vlabel degrees {}\n".format('Fahrenheit' if self.temperatureScale == 'f' else "Celsius")
         output += "graph_args --base 1000 -l 0\n"
         output += "graph_category sensors\n"
         for sensorId, sensor in enumerate(self.temperatures):
             output += "temp{}.label {}\n".format(sensorId, sensor['label'])
             output += "temp{}.warning {}\n".format(sensorId, self.grapWarning)
             output += "temp{}.critical {}\n".format(sensorId, self.graphCritical)
+
+        # Print output
         print(output, end='')
 
     def printTemp(self):
         """
         Print munin readings
         """
+        # Fetch data from TemPageR
         self.fetch()
+
+        # Format output
         output = ""
         for sensorId, sensor in enumerate(self.temperatures):
-            output += "temp{}.value {}\n".format(sensorId, sensor['tempc'])
+            output += "temp{}.value {}\n".format(sensorId, sensor['temp'])
+
+        # Print output
         print(output, end='')
 
 
