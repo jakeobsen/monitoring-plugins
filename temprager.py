@@ -11,11 +11,11 @@
 # products AVTECH makes. Use it at your own risk.
 #
 
+import logging
 from json import loads
 from telnetlib import Telnet
 from sys import argv, exit
 from re import sub
-from logging import basicConfig, error, INFO
 
 
 class TemPageR():
@@ -33,12 +33,12 @@ class TemPageR():
         self.temperatureSensor = ""
 
         # Logging
-        self.enableLogging = False
+        self.logFile = '/var/log/munin/tempager.log'
+        self.logLevel = logging.INFO
         self.outputTrace = True
 
         # Initialization
         self.temperatures = []
-        self.fetch()
 
     def fetch(self):
         """
@@ -52,8 +52,7 @@ class TemPageR():
             tn = Telnet(self.temperatureSensor, 80)
             tn.write("GET /getData.html".encode('ascii') + b"\n\n")
         except Exception as e:
-            if self.enableLogging:
-                error("Something happened, exception: {}".format(e), exc_info=self.outputTrace)
+            logging.error("Something happened, exception: {}".format(e), exc_info=self.outputTrace)
             exit(2)
 
         # Here the code read the telnet response and decode it into a text string from ascii
@@ -74,8 +73,7 @@ class TemPageR():
             temp = loads(text)
         except Exception as e:
             temp = None
-            if self.enableLogging:
-                error("Unable to parse JSON string: {}".format(e), exc_info=self.outputTrace)
+            logging.error("Unable to parse JSON string: {}".format(e), exc_info=self.outputTrace)
             exit(2)
 
         # Extract all data and stuff it into a dict
@@ -91,6 +89,7 @@ class TemPageR():
         """
         Print munin config
         """
+        self.fetch()
         output = "graph_title {}\n".format(self.graphTitle)
         output += "graph_vlabel degrees Celsius\n"
         output += "graph_args --base 1000 -l 0\n"
@@ -105,6 +104,7 @@ class TemPageR():
         """
         Print munin readings
         """
+        self.fetch()
         output = ""
         for sensorId, sensor in enumerate(self.temperatures):
             output += "temp{}.value {}\n".format(sensorId, sensor['tempc'])
@@ -116,7 +116,7 @@ if __name__ == '__main__':
     temPager = TemPageR()
 
     # Configure logging
-    basicConfig(level=INFO)
+    logging.basicConfig(level=temPager.logLevel, filemode='w', filename=temPager.logFile)
 
     # Output config options or temp data
     if (argv[1] if len(argv) == 2 else "") == "config":
