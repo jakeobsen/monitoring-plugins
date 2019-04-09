@@ -148,9 +148,7 @@ class TemPageR():
         self.fetch()
 
         # Format output
-        output = ""
-        for sensorId, sensor in enumerate(self.temperatures):
-            output += "temp{}.value {}\n".format(sensorId, sensor['temp'])
+        output = '\n'.join("temp{}.value {}".format(sensorId, sensor['temp']) for sensorId, sensor in enumerate(self.temperatures))
 
         # Print output
         print(output, end='')
