@@ -91,27 +91,23 @@ class TemPageR():
         """
         Print munin config
         """
-        sensorId = 0
         output = "graph_title {}\n".format(self.graphTitle)
         output += "graph_vlabel degrees Celsius\n"
         output += "graph_args --base 1000 -l 0\n"
         output += "graph_category sensors\n"
-        for sensor in self.temperatures:
+        for sensorId, sensor in enumerate(self.temperatures):
             output += "temp{}.label {}\n".format(sensorId, sensor['label'])
             output += "temp{}.warning {}\n".format(sensorId, self.grapWarning)
             output += "temp{}.critical {}\n".format(sensorId, self.graphCritical)
-            sensorId += 1
         print(output, end='')
 
     def printTemp(self):
         """
         Print munin readings
         """
-        sensorId = 0
         output = ""
-        for sensor in self.temperatures:
+        for sensorId, sensor in enumerate(self.temperatures):
             output += "temp{}.value {}\n".format(sensorId, sensor['tempc'])
-            sensorId += 1
         print(output, end='')
 
 
