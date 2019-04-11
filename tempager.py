@@ -30,6 +30,7 @@
 #
 
 import logging
+from logging.handlers import SysLogHandler
 from json import loads
 from telnetlib import Telnet
 from sys import argv, exit
@@ -139,8 +140,8 @@ class TemPageR():
 
                 # Add sensor to dict
                 self.temperatures.append({
-                    'label': sensor['label'],                                                   # Sensor label as given from TemPageR system
-                    'temp': sensor[self.sensorTemp],              # The temperature reading in either C or F
+                    'label': sensor['label'],
+                    'temp': sensor[self.sensorTemp],
                     'state': state
                 })
 
@@ -177,7 +178,7 @@ temp{sensorId}.critical {crit}"""
         self.fetch()
 
         # Format output
-        output = '\n'.join("temp{}.value {}".format(sensorId, sensor['temp']) for sensorId, sensor in enumerate(self.temperatures))
+        output = '\n'.join("temp{}.value {}".format(sId, sensor['temp']) for sId, sensor in enumerate(self.temperatures))
 
         # Print output
         print(output)
@@ -191,7 +192,11 @@ temp{sensorId}.critical {crit}"""
         self.fetch()
 
         # Format output
-        output = ' - '.join("Sensor({}) {} is in state {} ({}º{})".format(sensorId, sensor['label'], sensor['state'], sensor['temp'], self.temperatureSymbol) for sensorId, sensor in enumerate(self.temperatures))
+        output = ' - '.join("Sensor({sensorId}) {label} is in state {state} ({temp}º{symbol})".format(sensorId=sId,
+                                                                                                      label=sensor['label'],
+                                                                                                      state=sensor['state'],
+                                                                                                      temp=sensor['temp'],
+                                                                                                      symbol=self.temperatureSymbol) for sId, sensor in enumerate(self.temperatures))
 
         logging.info("Exit {} - {}".format(self.nagiosExitCode, output))
         print(output)
@@ -203,7 +208,15 @@ if __name__ == '__main__':
     temPager = TemPageR()
 
     # Configure logging
-    logging.basicConfig(level=temPager.logLevel, filemode='a', filename=temPager.logFile)
+    # If the script cannot access the logfile specified in self.logFile, it will default to syslog fileself
+    try:
+        logging.basicConfig(level=temPager.logLevel, filemode='a', filename=temPager.logFile)
+    except IOError as e:
+        logging.basicConfig(level=temPager.logLevel, handlers=[SysLogHandler(address='/dev/log')])
+    except Exception as e:
+        # If something we didn't expect happens, die.
+        print("Unhandled exception: {}".format(e))
+        exit(3)
 
     # Get command
     command = argv[1] if len(argv) == 2 else ""
