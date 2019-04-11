@@ -58,7 +58,7 @@ class TemPageR():
         self.isCentigrade = True
 
         # Sensor IP or hostname
-        self.temperatureSensor = ""
+        self.temperatureSensor = "temperature.silicom.dk"
 
         # Logging
         self.logFile = '/var/log/tempager.log'
