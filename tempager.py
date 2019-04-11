@@ -15,7 +15,7 @@
 # they will be logged to the specified logfile.
 # By default this script will log into the munin
 # log directory.
-# 
+#
 # If you use the default log path, I would highly
 # recommend that you configure logrotation.
 # The easiest way is to add the following logrotate
@@ -61,13 +61,15 @@ class TemPageR():
         # Temperature Configuration
         self.tempWarning = 26
         self.tempCritical = 30
-        self.tempScale = "c"
+        
+        # True for Celsius, False for Fahrenheit
+        self.isCentigrade = True
 
         # Sensor IP or hostname
-        self.temperatureSensor = ""
+        self.temperatureSensor = "temperature.silicom.dk"
 
         # Logging
-        self.logFile = '/var/log/munin/tempager.log'
+        self.logFile = 'tempager.log'
         self.logLevel = logging.INFO
         self.outputTrace = True
 
@@ -78,6 +80,16 @@ class TemPageR():
         # Variable Initializations
         self.temperatures = []
         self.nagiosExitCode = 0
+
+        # Determine what scale to use, and set variables accordingly
+        if self.isCentigrade:
+            self.sensorTemp = 'tempc'
+            self.temperatureLabel = 'Celsius'
+            self.temperatureSymbol = "C"
+        else:
+            self.sensorTemp = 'tempf'
+            self.temperatureLabel = 'Fahrenheit'
+            self.temperatureSymbol = "F"
 
     def fetch(self):
         """
@@ -117,7 +129,7 @@ class TemPageR():
         # Extract all data and stuff it into a dict
         if isinstance(temp, dict):
             for sensor in temp.get('sensor', []):
-                temp = float(sensor['tempf' if self.tempScale == 'f' else "tempc"])
+                temp = float(sensor[self.sensorTemp])
 
                 if temp < self.tempWarning:
                     state = 'OK'
@@ -130,11 +142,11 @@ class TemPageR():
                     self.nagiosExitCode = 1
                 elif state == 'Critical' and self.nagiosExitCode >= 0:
                     self.nagiosExitCode = 2
-                
+
                 # Add sensor to dict
                 self.temperatures.append({
                     'label': sensor['label'],                                                   # Sensor label as given from TemPageR system
-                    'temp': sensor['tempf' if self.tempScale == 'f' else "tempc"],              # The temperature reading in either C or F
+                    'temp': sensor[self.sensorTemp],              # The temperature reading in either C or F
                     'state': state
                 })
 
@@ -146,7 +158,7 @@ class TemPageR():
         output = """graph_title {}
 graph_vlabel degrees {}
 graph_args --base 1000 -l 0
-graph_category sensors""".format(self.graphTitle, format('Fahrenheit' if self.tempScale == 'f' else "Celsius"))
+graph_category sensors""".format(self.graphTitle, format(self.temperatureLabel))
 
         # Graph sensor template
         msg = """temp{sensorId}.label {label}
@@ -155,10 +167,10 @@ temp{sensorId}.critical {crit}"""
 
         # Build graph meta data
         msg = '\n'.join(msg.format(sensorId=sId,
-                                   label=sensor['label'], 
+                                   label=sensor['label'],
                                    warn=self.tempWarning,
                                    crit=self.tempCritical) for sId, sensor in enumerate(self.temperatures))
-        
+
         # Assemble and print output
         print('\n'.join([output, msg]))
 
@@ -174,7 +186,7 @@ temp{sensorId}.critical {crit}"""
 
         # Print output
         print(output, end='')
-    
+
     def nagios(self):
         """
         Output to nagios
@@ -183,8 +195,10 @@ temp{sensorId}.critical {crit}"""
         self.fetch()
 
         # Check if temperatures are OK
-        output = ' - '.join("Sensor({}) {} is in state {} ({}°{})".format(sensorId, sensor['label'], sensor['state'], sensor['temp'], self.tempScale) for sensorId, sensor in enumerate(self.temperatures))
+        output = ' - '.join("Sensor({}) {} is in state {} ({}°{})".format(sensorId,
+                                                                          sensor['label'], sensor['state'], sensor['temp'], self.temperatureSymbol) for sensorId, sensor in enumerate(self.temperatures))
 
+        logging.info("Exit {} - {}".format(self.nagiosExitCode, output))
         print(output)
         exit(self.nagiosExitCode)
 
@@ -196,10 +210,13 @@ if __name__ == '__main__':
     # Configure logging
     logging.basicConfig(level=temPager.logLevel, filemode='w', filename=temPager.logFile)
 
+    # Get command
+    command = argv[1] if len(argv) == 2 else ""
+
     # Output config options or temp data
-    if (argv[1] if len(argv) == 2 else "") == "config":
+    if (command) == "config":
         temPager.printConfig()
-    if (argv[1] if len(argv) == 2 else "") == "nagios":
+    elif (command) == "nagios":
         temPager.nagios()
     else:
         temPager.printTemp()
