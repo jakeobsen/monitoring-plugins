@@ -4,36 +4,28 @@
 # license that can be found in the LICENSE file.
 # -*- coding: utf-8 -*-
 #
-# This plugin was specifically written to extract
-# temperature data from the AVTECH TemPageR 4E
-# running firmware v2.6.0. I have no idea if it
-# works with later version of the firmware the other
-# products AVTECH makes. Use it at your own risk.
+# This plugin was specifically written to extract temperature data from the AVTECH TemPageR 4E
+# running firmware v2.6.0. I have no idea if it works with later version of the firmware
+# the other products AVTECH makes. Use it at your own risk.
 #
-# When this file is run, it will contact the TemPageR
-# sensor and grab the data, if any exceptions happen
-# they will be logged to the specified logfile.
-# By default this script will log into the munin
-# log directory.
+# When this file is run, it will contact the TemPageR sensor and grab the data, if any
+# exceptions happen they will be logged to the specified logfile. By default this script
+# will log into the munin log directory.
 #
-# If you use the default log path, I would highly
-# recommend that you configure logrotation.
-# The easiest way is to add the following logrotate
-# snippet to the munin logrotate file.
+# If you use the default log path, I would highly recommend that you configure logrotation.
+# The easiest way is to add the following logrotate snippet to a logrotate config file.
 #
-# The snippet below will enable logrotation of the
-# tempager.log file using the default munin logrotate
-# ruleset.
+# The snippet below will enable logrotation of the tempager.log
 #
-# Add this to  /etc/logrotate.d/munin:
+# Add this to /etc/logrotate.d/tempager, replace USERNAME with either nagios or munin:
 #
-# /var/log/munin/tempager.log {
+# /var/log/tempager.log {
 #   daily
 #   missingok
 #   rotate 7
 #   compress
 #   notifempty
-#   create 640 munin adm
+#   create 644 USERNAME adm
 # }
 #
 
