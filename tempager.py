@@ -57,9 +57,11 @@ class TemPageR():
 
         # Munin graph
         self.graphTitle = "Server Room Temperatures"
-        self.grapWarning = 28
-        self.graphCritical = 30
-        self.temperatureScale = "c"
+
+        # Temperature Configuration
+        self.tempWarning = 26
+        self.tempCritical = 30
+        self.tempScale = "c"
 
         # Sensor IP or hostname
         self.temperatureSensor = ""
@@ -75,6 +77,7 @@ class TemPageR():
 
         # Variable Initializations
         self.temperatures = []
+        self.nagiosExitCode = 0
 
     def fetch(self):
         """
@@ -113,12 +116,27 @@ class TemPageR():
 
         # Extract all data and stuff it into a dict
         if isinstance(temp, dict):
-            if 'sensor' in temp:
-                for sensor in temp["sensor"]:
-                    self.temperatures.append({
-                        'label': sensor['label'],
-                        'temp': sensor['tempf' if self.temperatureScale == 'f' else "tempc"]
-                    })
+            for sensor in temp.get('sensor', []):
+                temp = float(sensor['tempf' if self.tempScale == 'f' else "tempc"])
+
+                if temp < self.tempWarning:
+                    state = 'OK'
+                elif temp < self.tempCritical:
+                    state = 'Warning'
+                else:
+                    state = 'Critical'
+
+                if state == 'Warning' and self.nagiosExitCode == 0:
+                    self.nagiosExitCode = 1
+                elif state == 'Critical' and self.nagiosExitCode >= 0:
+                    self.nagiosExitCode = 2
+                
+                # Add sensor to dict
+                self.temperatures.append({
+                    'label': sensor['label'],                                                   # Sensor label as given from TemPageR system
+                    'temp': sensor['tempf' if self.tempScale == 'f' else "tempc"],              # The temperature reading in either C or F
+                    'state': state
+                })
 
     def printConfig(self):
         # Fetch data from TemPageR
@@ -128,7 +146,7 @@ class TemPageR():
         output = """graph_title {}
 graph_vlabel degrees {}
 graph_args --base 1000 -l 0
-graph_category sensors""".format(self.graphTitle, format('Fahrenheit' if self.temperatureScale == 'f' else "Celsius"))
+graph_category sensors""".format(self.graphTitle, format('Fahrenheit' if self.tempScale == 'f' else "Celsius"))
 
         # Graph sensor template
         msg = """temp{sensorId}.label {label}
@@ -138,8 +156,8 @@ temp{sensorId}.critical {crit}"""
         # Build graph meta data
         msg = '\n'.join(msg.format(sensorId=sId,
                                    label=sensor['label'], 
-                                   warn=self.grapWarning,
-                                   crit=self.graphCritical) for sId, sensor in enumerate(self.temperatures))
+                                   warn=self.tempWarning,
+                                   crit=self.tempCritical) for sId, sensor in enumerate(self.temperatures))
         
         # Assemble and print output
         print('\n'.join([output, msg]))
@@ -156,6 +174,19 @@ temp{sensorId}.critical {crit}"""
 
         # Print output
         print(output, end='')
+    
+    def nagios(self):
+        """
+        Output to nagios
+        """
+        # Fetch data from TemPageR
+        self.fetch()
+
+        # Check if temperatures are OK
+        output = ' - '.join("Sensor({}) {} is in state {} ({}°{})".format(sensorId, sensor['label'], sensor['state'], sensor['temp'], self.tempScale) for sensorId, sensor in enumerate(self.temperatures))
+
+        print(output)
+        exit(self.nagiosExitCode)
 
 
 if __name__ == '__main__':
@@ -168,5 +199,7 @@ if __name__ == '__main__':
     # Output config options or temp data
     if (argv[1] if len(argv) == 2 else "") == "config":
         temPager.printConfig()
+    if (argv[1] if len(argv) == 2 else "") == "nagios":
+        temPager.nagios()
     else:
         temPager.printTemp()
