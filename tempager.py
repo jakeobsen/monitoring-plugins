@@ -190,7 +190,7 @@ temp{sensorId}.critical {crit}"""
         # Fetch data from TemPageR
         self.fetch()
 
-        # Check if temperatures are OK
+        # Format output
         output = ' - '.join("Sensor({}) {} is in state {} ({}º{})".format(sensorId, sensor['label'], sensor['state'], sensor['temp'], self.temperatureSymbol) for sensorId, sensor in enumerate(self.temperatures))
 
         logging.info("Exit {} - {}".format(self.nagiosExitCode, output))
