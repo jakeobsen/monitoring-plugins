@@ -59,17 +59,17 @@ class TemPageR():
         self.graphTitle = "Server Room Temperatures"
 
         # Temperature Configuration
-        self.tempWarning = 26
+        self.tempWarning = 28
         self.tempCritical = 30
-        
+
         # True for Celsius, False for Fahrenheit
         self.isCentigrade = True
 
         # Sensor IP or hostname
-        self.temperatureSensor = "temperature.silicom.dk"
+        self.temperatureSensor = ""
 
         # Logging
-        self.logFile = 'tempager.log'
+        self.logFile = '/var/log/tempager.log'
         self.logLevel = logging.INFO
         self.outputTrace = True
 
@@ -79,7 +79,7 @@ class TemPageR():
 
         # Variable Initializations
         self.temperatures = []
-        self.nagiosExitCode = 0
+        self.nagiosExitCode = 3
 
         # Determine what scale to use, and set variables accordingly
         if self.isCentigrade:
@@ -104,7 +104,7 @@ class TemPageR():
             tn.write("GET /getData.html".encode('ascii') + b"\n\n")
         except Exception as e:
             logging.error("Something happened, exception: {}".format(e), exc_info=self.outputTrace)
-            exit(2)
+            exit(3)
 
         # Here the code read the telnet response and decode it into a text string from ascii
         text = tn.read_all().decode('ascii')
@@ -124,7 +124,7 @@ class TemPageR():
             temp = loads(text)
         except Exception as e:
             logging.error("Unable to parse JSON string: {}".format(e), exc_info=self.outputTrace)
-            exit(2)
+            exit(3)
 
         # Extract all data and stuff it into a dict
         if isinstance(temp, dict):
@@ -138,7 +138,9 @@ class TemPageR():
                 else:
                     state = 'Critical'
 
-                if state == 'Warning' and self.nagiosExitCode == 0:
+                if state == 'OK' and self.nagiosExitCode == 3:
+                    self.nagiosExitCode = 0
+                elif state == 'Warning' and self.nagiosExitCode == 0:
                     self.nagiosExitCode = 1
                 elif state == 'Critical' and self.nagiosExitCode >= 0:
                     self.nagiosExitCode = 2
@@ -173,6 +175,7 @@ temp{sensorId}.critical {crit}"""
 
         # Assemble and print output
         print('\n'.join([output, msg]))
+        exit(0)
 
     def printTemp(self):
         """
@@ -185,7 +188,8 @@ temp{sensorId}.critical {crit}"""
         output = '\n'.join("temp{}.value {}".format(sensorId, sensor['temp']) for sensorId, sensor in enumerate(self.temperatures))
 
         # Print output
-        print(output, end='')
+        print(output)
+        exit(0)
 
     def nagios(self):
         """
@@ -195,8 +199,7 @@ temp{sensorId}.critical {crit}"""
         self.fetch()
 
         # Check if temperatures are OK
-        output = ' - '.join("Sensor({}) {} is in state {} ({}°{})".format(sensorId,
-                                                                          sensor['label'], sensor['state'], sensor['temp'], self.temperatureSymbol) for sensorId, sensor in enumerate(self.temperatures))
+        output = ' - '.join("Sensor({}) {} is in state {} ({}º{})".format(sensorId, sensor['label'], sensor['state'], sensor['temp'], self.temperatureSymbol) for sensorId, sensor in enumerate(self.temperatures))
 
         logging.info("Exit {} - {}".format(self.nagiosExitCode, output))
         print(output)
@@ -208,7 +211,7 @@ if __name__ == '__main__':
     temPager = TemPageR()
 
     # Configure logging
-    logging.basicConfig(level=temPager.logLevel, filemode='w', filename=temPager.logFile)
+    logging.basicConfig(level=temPager.logLevel, filemode='a', filename=temPager.logFile)
 
     # Get command
     command = argv[1] if len(argv) == 2 else ""
