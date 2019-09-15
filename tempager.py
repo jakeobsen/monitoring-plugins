@@ -4,20 +4,23 @@
 # license that can be found in the LICENSE file.
 # -*- coding: utf-8 -*-
 #
-# This plugin was specifically written to extract temperature data from the AVTECH TemPageR 4E
-# running firmware v2.6.0. I have no idea if it works with later version of the firmware
-# the other products AVTECH makes. Use it at your own risk.
+# This plugin was specifically written to extract temperature data from the
+# AVTECH TemPageR 4E running firmware v2.6.0. I have no idea if it works with
+# later version of the firmware the other products AVTECH makes. Use it at your
+# own risk.
 #
-# When this file is run, it will contact the TemPageR sensor and grab the data, if any
-# exceptions happen they will be logged to the specified logfile. By default this script
-# will log into the munin log directory.
+# When this file is run, it will contact the TemPageR sensor and grab the data,
+# if any exceptions happen they will be logged to the specified logfile. By
+# default this script will log into the munin log directory.
 #
-# If you use the default log path, I would highly recommend that you configure logrotation.
-# The easiest way is to add the following logrotate snippet to a logrotate config file.
+# If you use the default log path, I would highly recommend that you configure
+# logrotation.  The easiest way is to add the following logrotate snippet to a
+# logrotate config file.
 #
 # The snippet below will enable logrotation of the tempager.log
 #
-# Add this to /etc/logrotate.d/tempager, replace USERNAME with either nagios or munin:
+# Add this to /etc/logrotate.d/tempager, replace USERNAME with either nagios or
+# munin:
 #
 # /var/log/tempager.log {
 #   daily
@@ -88,18 +91,23 @@ class TemPageR():
         """
         Fetch data from TemPageR sensor
         """
-        # The temperature sensor does not return a proper HTTP response when calling the /getData.html page
-        # The sensor does not return any headers, and only the body which is a single line of bad JSON data
-        # This means the python requests plugin does not know how to handle the data. Instead I chose to use
-        # the telnetlib module, and just send a raw http response and grab the response.
+        # The temperature sensor does not return a proper HTTP response when
+        # calling the /getData.html page The sensor does not return any
+        # headers, and only the body which is a single line of bad JSON data
+        # This means the python requests plugin does not know how to handle the
+        # data. Instead I chose to use the telnetlib module, and just send a
+        # raw http response and grab the response.
         try:
             tn = Telnet(self.temperatureSensor, 80)
             tn.write("GET /getData.html".encode('ascii') + b"\n\n")
         except Exception as e:
-            logging.error("Something happened, exception: {}".format(e), exc_info=self.outputTrace)
+            logging.error(
+                "Something happened, exception: {}".format(e),
+                exc_info=self.outputTrace)
             exit(3)
 
-        # Here the code read the telnet response and decode it into a text string from ascii
+        # Here the code read the telnet response and decode it into a text
+        # string from ascii
         text = tn.read_all().decode('ascii')
 
         # The sensor returns gibberish JSON data that needs to be cleaned up
@@ -116,7 +124,9 @@ class TemPageR():
         try:
             temp = loads(text)
         except Exception as e:
-            logging.error("Unable to parse JSON string: {}".format(e), exc_info=self.outputTrace)
+            logging.error(
+                "Unable to parse JSON string: {}".format(e),
+                exc_info=self.outputTrace)
             exit(3)
 
         # Extract all data and stuff it into a dict
@@ -162,9 +172,9 @@ temp{sensorId}.critical {crit}"""
 
         # Build graph meta data
         msg = '\n'.join(msg.format(sensorId=sId,
-                                   label=sensor['label'],
-                                   warn=self.tempWarning,
-                                   crit=self.tempCritical) for sId, sensor in enumerate(self.temperatures))
+            label=sensor['label'],
+            warn=self.tempWarning,
+            crit=self.tempCritical) for sId, sensor in enumerate(self.temperatures))
 
         # Assemble and print output
         print('\n'.join([output, msg]))
@@ -178,7 +188,9 @@ temp{sensorId}.critical {crit}"""
         self.fetch()
 
         # Format output
-        output = '\n'.join("temp{}.value {}".format(sId, sensor['temp']) for sId, sensor in enumerate(self.temperatures))
+        output = '\n'.join("temp{}.value {}".format(
+            sId,
+            sensor['temp']) for sId, sensor in enumerate(self.temperatures))
 
         # Print output
         print(output)
@@ -192,11 +204,13 @@ temp{sensorId}.critical {crit}"""
         self.fetch()
 
         # Format output
-        output = ' - '.join("Sensor({sensorId}) {label} is in state {state} ({temp}º{symbol})".format(sensorId=sId,
-                                                                                                      label=sensor['label'],
-                                                                                                      state=sensor['state'],
-                                                                                                      temp=sensor['temp'],
-                                                                                                      symbol=self.temperatureSymbol) for sId, sensor in enumerate(self.temperatures))
+        output = ' - '.join(
+            "Sensor({sensorId}) {label} is in state {state} ({temp}º{symbol})".format(
+                sensorId=sId,
+                label=sensor['label'],
+                state=sensor['state'],
+                temp=sensor['temp'],
+                symbol=self.temperatureSymbol) for sId, sensor in enumerate(self.temperatures))
 
         logging.info("Exit {} - {}".format(self.nagiosExitCode, output))
         print(output)
@@ -208,11 +222,17 @@ if __name__ == '__main__':
     temPager = TemPageR()
 
     # Configure logging
-    # If the script cannot access the logfile specified in self.logFile, it will default to syslog fileself
+    # If the script cannot access the logfile specified in self.logFile, it
+    # will default to syslog fileself
     try:
-        logging.basicConfig(level=temPager.logLevel, filemode='a', filename=temPager.logFile)
+        logging.basicConfig(
+            level=temPager.logLevel,
+            filemode='a',
+            filename=temPager.logFile)
     except IOError as e:
-        logging.basicConfig(level=temPager.logLevel, handlers=[SysLogHandler(address='/dev/log')])
+        logging.basicConfig(
+            level=temPager.logLevel,
+            handlers=[SysLogHandler(address='/dev/log')])
     except Exception as e:
         # If something we didn't expect happens, die.
         print("Unhandled exception: {}".format(e))
