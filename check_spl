@@ -8,7 +8,7 @@ import warnings
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 from telnetlib import Telnet
 from enum import IntEnum
@@ -41,6 +41,8 @@ class SPLVTRemote:
         self._spl_login = False
         self.nagios_exit_code: NagiosExitCodes = NagiosExitCodes.OK
         self._splrv = "Station Playlist Remote Voicetrack"
+        self._timezone: timezone = timezone(timedelta(hours=args.offset))
+        self._timezone_str: str = datetime.now(self._timezone).strftime("%z")
 
         if args.keyword == "nagios":
             self.nagios()
@@ -118,7 +120,7 @@ class SPLVTRemote:
         :return: sorted list of datetime objects.
         """
         filenames = self._filenames().split("\r\n")
-        playlist_dates = [datetime.strptime(filename, '%y%m%d-%H.plg')
+        playlist_dates = [datetime.strptime(f"{filename}-{self._timezone_str}", '%y%m%d-%H.plg-%z')
                           for filename in filenames if "What" not in filename]
         playlist_dates.sort()
         return playlist_dates
@@ -145,8 +147,10 @@ class SPLVTRemote:
 
         if self._spl_login:
             dates = self._playlist_dates()
+            self._disconnect()
+
             expected_week = [
-                (lambda n: datetime.now() + timedelta(days=7 * n))(n).isocalendar().week
+                (lambda n: datetime.now(self._timezone) + timedelta(days=7 * n))(n).isocalendar().week
                 for n in range(self._weeks)
             ]
             spl_weeks = [week.isocalendar().week for week in dates]
@@ -156,8 +160,6 @@ class SPLVTRemote:
                 self._nagios_status(
                     NagiosExitCodes.CRITICAL, " ".join([f"Week {week} missing in rotation."
                                                         for week in expected_week if week not in spl_weeks]))
-
-        self._disconnect()
 
     def munin_config(self):
         pass
@@ -190,6 +192,7 @@ def cli_args() -> argparse.Namespace:
     parser.add_argument("-w", "--weeks", default=4, type=int, help="Number of future weeks expected in rotation.")
     parser.add_argument("-t", "--timeout", default=2, type=int, help="Server response timeout.")
     parser.add_argument("-P", "--port", default=2323, type=int, help="SPL port.")
+    parser.add_argument("-o", "--offset", default=2, type=int, help="UTC timezone offset.")
     parser.add_argument("keyword", choices=['nagios', 'config', 'munin'])
 
     return parser.parse_args()
