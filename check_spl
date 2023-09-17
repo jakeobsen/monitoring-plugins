@@ -49,7 +49,7 @@ class SPLVTRemote:
         else:
             self.munin()
 
-    def _connect(self):
+    def _connect(self) -> None:
         """
         Using Telnet, create TCP connection to SPL server.
         
@@ -65,7 +65,7 @@ class SPLVTRemote:
         """
         self._tn.close()
 
-    def _command(self, command, match):
+    def _command(self, command, match) -> str:
         """
         Write command to remote server and wait for response.
         This command will also ensure a server connection exists and connect if it does not exist.
