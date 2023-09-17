@@ -118,16 +118,8 @@ class SPLVTRemote:
         :return: sorted list of datetime objects.
         """
         filenames = self._filenames().split("\r\n")
-        playlist_dates = list(
-            filter(
-                None,
-                [
-                    datetime.strptime(filename, '%y%m%d-%H.plg')
-                    if "What" not in filename else None
-                    for filename in filenames
-                ]
-            )
-        )
+        playlist_dates = [datetime.strptime(filename, '%y%m%d-%H.plg')
+                          for filename in filenames if "What" not in filename]
         playlist_dates.sort()
         return playlist_dates
 
@@ -161,11 +153,9 @@ class SPLVTRemote:
             if all([week in spl_weeks for week in expected_week]):
                 self._nagios_status(NagiosExitCodes.OK, f"{self._splrv} Service OK")
             else:
-                self._nagios_status(NagiosExitCodes.CRITICAL, " ".join(list(filter(None, [
-                    f"Week {week} missing in rotation."
-                    if week not in spl_weeks else None
-                    for week in expected_week
-                ]))))
+                self._nagios_status(
+                    NagiosExitCodes.CRITICAL, " ".join([f"Week {week} missing in rotation."
+                                                        for week in expected_week if week not in spl_weeks]))
 
         self._disconnect()
 
