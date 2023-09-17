@@ -161,11 +161,11 @@ class SPLVTRemote:
             if all([week in spl_weeks for week in expected_week]):
                 self._nagios_status(NagiosExitCodes.OK, f"{self._splrv} Service OK")
             else:
-                messages = []
-                for week in expected_week:
-                    if week not in spl_weeks:
-                        messages.append(f"Week {week} missing in rotation.")
-                self._nagios_status(NagiosExitCodes.CRITICAL, " ".join(messages))
+                self._nagios_status(NagiosExitCodes.CRITICAL, " ".join(list(filter(None, [
+                    f"Week {week} missing in rotation."
+                    if week not in spl_weeks else None
+                    for week in expected_week
+                ]))))
 
         self._disconnect()
 
