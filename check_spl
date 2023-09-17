@@ -1,0 +1,234 @@
+#!/usr/bin/env python3
+# Copyright 2023 Morten Jakobsen. All rights reserved.
+# Use of this source code is governed by a BSD-style
+# license that can be found in the LICENSE file.
+# -*- coding: utf-8 -*-
+
+import warnings
+
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
+from datetime import datetime, timedelta
+from typing import List, Optional
+from telnetlib import Telnet
+from enum import IntEnum
+import argparse
+import logging
+import os
+import sys
+
+
+class NagiosExitCodes(IntEnum):
+    OK = 0
+    WARNING = 1
+    CRITICAL = 2
+    UNKNOWN = 3
+
+
+class SPLVTRemote:
+
+    def __init__(self, args):
+        # Login details
+        self._username = args.username
+        self._password = args.password
+        self._server = args.server
+        self._port = args.port
+        self._timeout = args.timeout
+        self._weeks = args.weeks
+
+        # Internal variables
+        self._tn: Optional[Telnet] = None
+        self._spl_login = False
+        self.nagios_exit_code: NagiosExitCodes = NagiosExitCodes.OK
+        self._splrv = "Station Playlist Remote Voicetrack"
+
+        if args.keyword == "nagios":
+            self.nagios()
+        elif args.keyword == "config":
+            self.munin_config()
+        else:
+            self.munin()
+
+    def _connect(self):
+        """
+        Using Telnet, create TCP connection to SPL server.
+        
+        :return: Returns none.
+        """
+        self._tn = Telnet(self._server, self._port)
+
+    def _disconnect(self) -> None:
+        """
+        Terminate TCP connection.
+        
+        :return: Returns none.
+        """
+        self._tn.close()
+
+    def _command(self, command, match):
+        """
+        Write command to remote server and wait for response.
+        This command will also ensure a server connection exists and connect if it does not exist.
+        Will auto add a new line to end of command string if it's not supplied.
+
+        :param command: ascii encodable plain text command sent to server.
+        :param match: string of characters expected from remote server, will stop when these characters are
+                    encountered or return anything available when timeout is reached.
+        :return: server response ascii decoded and stripped.
+        """
+        if not self._tn:
+            self._connect()
+
+        if command[-1:] != "\n":
+            command = f"{command}\n"
+
+        self._tn.write(command.encode('ascii'))
+        response = self._tn.read_until(match=match.encode('ascii'), timeout=self._timeout).decode('ascii').strip()
+        logging.debug(f"Sending command: {command.strip()}")
+        logging.debug(f"Response: {response}")
+        return response
+
+    def _login(self) -> bool:
+        """
+        Performs login to remote SPL server.
+        Returns true if login was successful or false if it was not.
+
+        :return: login state bool.
+        """
+        self._spl_login = int(self._command('Login', "234")) == 234 and \
+                          self._command(f"{self._username}\n{self._password}", "OK") == "OK"
+
+        return self._spl_login
+
+    def _filenames(self) -> str:
+        """
+        Query server for playlist filenames. The last line in this output will be "What" which is an indicator
+        that the list is complete.
+
+        :return: Returns raw string of filenames.
+        """
+        if not self._spl_login:
+            self._login()
+        return self._command("PlgFilenames\n\n", "What")
+
+    def _playlist_dates(self) -> List[datetime]:
+        """
+        Will execute ._filenames() and process output into a sorted list of datetime objects.
+
+        :return: sorted list of datetime objects.
+        """
+        filenames = self._filenames().split("\r\n")
+        playlist_dates = list(
+            filter(
+                None,
+                [
+                    datetime.strptime(filename, '%y%m%d-%H.plg')
+                    if "What" not in filename else None
+                    for filename in filenames
+                ]
+            )
+        )
+        playlist_dates.sort()
+        return playlist_dates
+
+    def _nagios_status(self, status: NagiosExitCodes, message: str) -> None:
+        """
+        Formats nagios status message and sets nagios exit code attribute.
+
+        :param status: NagiosExitCodes enum.
+        :param message: Message to output to console for nagios to display.
+        :return: Returns none.
+        """
+        print(f"{status.name}: {message}")
+        self.nagios_exit_code = status
+
+    def nagios(self) -> None:
+        """
+        Connect to SPL server, login, query and process playlist dates.
+        Will check if login works and whether the number of expected playlist weeks are available to voicetrack.
+        :return: Returns none.
+        """
+        if not self._login():
+            self._nagios_status(NagiosExitCodes.CRITICAL, f"Login to {self._splrv} Service was unsuccessful.")
+
+        if self._spl_login:
+            dates = self._playlist_dates()
+            expected_week = [
+                (lambda n: datetime.now() + timedelta(days=7 * n))(n).isocalendar().week
+                for n in range(self._weeks)
+            ]
+            spl_weeks = [week.isocalendar().week for week in dates]
+            if all([week in spl_weeks for week in expected_week]):
+                self._nagios_status(NagiosExitCodes.OK, f"{self._splrv} Service OK")
+            else:
+                messages = []
+                for week in expected_week:
+                    if week not in spl_weeks:
+                        messages.append(f"Week {week} missing in rotation.")
+                self._nagios_status(NagiosExitCodes.CRITICAL, " ".join(messages))
+
+        self._disconnect()
+
+    def munin_config(self):
+        pass
+
+    def munin(self):
+        pass
+
+
+def cli_args() -> argparse.Namespace:
+    """
+    Commandline argument parser config. Defines and process command line arguments.
+
+    :return: parsed args object - argparse.Namespace
+    """
+    parser: argparse.ArgumentParser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        prog="main.py",
+        description="Change me to tell what I do :)")
+
+    parser.add_argument("-l",
+        "--loglevel",
+        choices=['debug', 'info', 'warning', 'error', 'critical'],
+        default=os.environ.get('loglevel', 'info'),
+        help="Set global loglevel. Can also be set using env variable 'loglevel'.")
+
+    parser.add_argument("-L", "--logfile", default="check_spl.log", help="Specifies logfile destination.")
+    parser.add_argument("-u", "--username", required=True, help="SPL username.")
+    parser.add_argument("-p", "--password", required=True,help="SPL password.")
+    parser.add_argument("-s", "--server", required=True,help="SPL server.")
+    parser.add_argument("-w", "--weeks", default=4, type=int, help="Number of future weeks expected in rotation.")
+    parser.add_argument("-t", "--timeout", default=2, type=int, help="Server response timeout.")
+    parser.add_argument("-P", "--port", default=2323, type=int, help="SPL port.")
+    parser.add_argument("keyword", choices=['nagios', 'config', 'munin'])
+
+    return parser.parse_args()
+
+
+def main(args: argparse.Namespace) -> int:
+    """
+    This is the main script loop where execution of this file begins.
+
+    :param args: argparse.Namespace - argument parser namespace for accessing command line options.
+    :return: exit code - this is used to tell the OS the status of the script.
+    """
+
+    logging.basicConfig(level={
+        "debug": logging.DEBUG,
+        "info": logging.INFO,
+        "warning": logging.WARNING,
+        "error": logging.ERROR,
+        "critical": logging.CRITICAL
+    }[args.loglevel],
+        format='%(asctime)s | %(lineno)-4d | %(message)s',
+        datefmt='%Y/%m/%d %H:%M:%S',
+        filemode='a',
+        filename=args.logfile)
+
+    spl = SPLVTRemote(args)
+
+    return spl.nagios_exit_code
+
+
+if __name__ == "__main__":
+    sys.exit(main(cli_args()))
