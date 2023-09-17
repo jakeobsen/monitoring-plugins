@@ -44,13 +44,6 @@ class SPLVTRemote:
         self._timezone: timezone = timezone(timedelta(hours=args.offset))
         self._timezone_str: str = datetime.now(self._timezone).strftime("%z")
 
-        if args.keyword == "nagios":
-            self.nagios()
-        elif args.keyword == "config":
-            self.munin_config()
-        else:
-            self.munin()
-
     def _connect(self) -> None:
         """
         Using Telnet, create TCP connection to SPL server.
@@ -219,6 +212,13 @@ def main(args: argparse.Namespace) -> int:
         filename=args.logfile)
 
     spl = SPLVTRemote(args)
+
+    # Executes script function based on keyword input
+    # Keyword input is required and can only be one of three inputs
+    {"nagios": spl.nagios,
+     "config": spl.munin_config,
+     "munin": spl.munin
+    }[args.keyword]()
 
     return spl.nagios_exit_code
 
